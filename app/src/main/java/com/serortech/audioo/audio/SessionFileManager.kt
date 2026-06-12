@@ -50,8 +50,8 @@ class SessionFileManager(private val ctx: Context) {
         return entry
     }
 
-    fun finalizeCurrent() {
-        val c = current ?: return
+    fun finalizeCurrent(): Entry? {
+        val c = current ?: return null
         try { c.fd.close() } catch (_: Exception) {}
         val values = ContentValues().apply {
             put(MediaStore.Audio.Media.IS_PENDING, 0)
@@ -60,6 +60,7 @@ class SessionFileManager(private val ctx: Context) {
             ctx.contentResolver.update(c.uri, values, null, null)
         } catch (_: Exception) {}
         current = null
+        return c
     }
 
     private fun nextCounter(day: String): Int {

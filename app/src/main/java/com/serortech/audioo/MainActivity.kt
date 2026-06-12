@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.serortech.audioo.drive.DriveAuth
 import com.serortech.audioo.service.VoiceRecorderService
 import com.serortech.audioo.ui.theme.AudiooTheme
 
@@ -63,9 +66,23 @@ fun AudiooMain(modifier: Modifier = Modifier) {
             }
         )
     }
-    val launcher = rememberLauncherForActivityResult(
+    val permsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { result -> granted = result.values.all { it } }
+
+    var signedIn by remember { mutableStateOf(DriveAuth.isSignedInWithDrive(ctx)) }
+    var signedInEmail by remember { mutableStateOf(DriveAuth.lastAccount(ctx)?.email ?: "") }
+    val signInLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { _ ->
+        signedIn = DriveAuth.isSignedInWithDrive(ctx)
+        signedInEmail = DriveAuth.lastAccount(ctx)?.email ?: ""
+    }
+
+    LaunchedEffect(Unit) {
+        signedIn = DriveAuth.isSignedInWithDrive(ctx)
+        signedInEmail = DriveAuth.lastAccount(ctx)?.email ?: ""
+    }
 
     Column(
         modifier = modifier.fillMaxSize().padding(24.dp),
@@ -73,29 +90,51 @@ fun AudiooMain(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
         Text("Audioo", style = MaterialTheme.typography.headlineLarge)
-        Text("v0.0.3 — call-aware", style = MaterialTheme.typography.bodyMedium)
+        Text("v0.0.4 — Drive sync", style = MaterialTheme.typography.bodyMedium)
+
         if (!granted) {
             Button(
-                onClick = { launcher.launch(perms) },
+                onClick = { permsLauncher.launch(perms) },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Demander permissions") }
+            return@Column
+        }
+
+        if (signedIn) {
+            Text(
+                "Drive: $signedInEmail",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedButton(
+                onClick = {
+                    DriveAuth.signInClient(ctx).signOut()
+                    signedIn = false
+                    signedInEmail = ""
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Se déconnecter de Drive") }
         } else {
             Button(
-                onClick = {
-                    val i = Intent(ctx, VoiceRecorderService::class.java)
-                        .setAction(VoiceRecorderService.ACTION_START)
-                    ContextCompat.startForegroundService(ctx, i)
-                },
+                onClick = { signInLauncher.launch(DriveAuth.signInClient(ctx).signInIntent) },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Start recording") }
-            Button(
-                onClick = {
-                    val i = Intent(ctx, VoiceRecorderService::class.java)
-                        .setAction(VoiceRecorderService.ACTION_STOP)
-                    ctx.startService(i)
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Stop recording") }
+            ) { Text("Connecter Google Drive") }
         }
+
+        Button(
+            onClick = {
+                val i = Intent(ctx, VoiceRecorderService::class.java)
+                    .setAction(VoiceRecorderService.ACTION_START)
+                ContextCompat.startForegroundService(ctx, i)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Start recording") }
+        Button(
+            onClick = {
+                val i = Intent(ctx, VoiceRecorderService::class.java)
+                    .setAction(VoiceRecorderService.ACTION_STOP)
+                ctx.startService(i)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Stop recording") }
     }
 }

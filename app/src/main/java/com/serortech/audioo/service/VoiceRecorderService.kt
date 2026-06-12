@@ -3,6 +3,7 @@ package com.serortech.audioo.service
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -11,6 +12,7 @@ import android.util.Log
 import com.serortech.audioo.audio.CallStateListener
 import com.serortech.audioo.audio.RecordingEngine
 import com.serortech.audioo.audio.SessionFileManager
+import com.serortech.audioo.drive.UploadWorker
 import com.serortech.audioo.notif.NotificationHelper
 
 class VoiceRecorderService : Service() {
@@ -85,13 +87,22 @@ class VoiceRecorderService : Service() {
         }
     }
 
-    private fun rotate() {
+    private fun closeAndUploadCurrent() {
         try {
             engine.stop()
-            fileMgr.finalizeCurrent()
         } catch (e: Exception) {
-            Log.e(TAG, "rotate: stop/finalize failed", e)
+            Log.e(TAG, "engine.stop failed during close", e)
         }
+        val finalized = try { fileMgr.finalizeCurrent() } catch (e: Exception) {
+            Log.e(TAG, "finalizeCurrent failed", e); null
+        }
+        if (finalized != null) {
+            enqueueUpload(finalized.uri, finalized.filename)
+        }
+    }
+
+    private fun rotate() {
+        closeAndUploadCurrent()
         beginNewSession()
     }
 
@@ -116,12 +127,7 @@ class VoiceRecorderService : Service() {
         val pauseDuration = if (pausedAt > 0L) System.currentTimeMillis() - pausedAt else 0L
         pausedAt = 0L
         if (pauseDuration >= CALL_LONG_THRESHOLD_MS) {
-            try {
-                engine.stop()
-                fileMgr.finalizeCurrent()
-            } catch (e: Exception) {
-                Log.e(TAG, "long call: stop/finalize failed", e)
-            }
+            closeAndUploadCurrent()
             beginNewSession()
         } else {
             try {
@@ -137,11 +143,19 @@ class VoiceRecorderService : Service() {
         }
     }
 
+    private fun enqueueUpload(uri: Uri, name: String) {
+        try {
+            UploadWorker.enqueue(applicationContext, uri, name)
+            Log.i(TAG, "upload queued: $name")
+        } catch (e: Exception) {
+            Log.e(TAG, "enqueueUpload failed for $name", e)
+        }
+    }
+
     private fun stopAll() {
         callListener.stop()
         handler.removeCallbacks(rotationRunnable)
-        try { engine.stop() } catch (_: Exception) {}
-        try { fileMgr.finalizeCurrent() } catch (_: Exception) {}
+        closeAndUploadCurrent()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
