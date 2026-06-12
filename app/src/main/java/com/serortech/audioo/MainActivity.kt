@@ -50,6 +50,7 @@ fun AudiooMain(modifier: Modifier = Modifier) {
     val perms = remember {
         buildList {
             add(Manifest.permission.RECORD_AUDIO)
+            add(Manifest.permission.READ_PHONE_STATE)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -72,7 +73,7 @@ fun AudiooMain(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
         Text("Audioo", style = MaterialTheme.typography.headlineLarge)
-        Text("v0.0.2 — recording engine", style = MaterialTheme.typography.bodyMedium)
+        Text("v0.0.3 — call-aware", style = MaterialTheme.typography.bodyMedium)
         if (!granted) {
             Button(
                 onClick = { launcher.launch(perms) },

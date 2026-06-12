@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import com.serortech.audioo.audio.CallStateListener
 import com.serortech.audioo.audio.RecordingEngine
 import com.serortech.audioo.audio.SessionFileManager
 import com.serortech.audioo.notif.NotificationHelper
@@ -17,17 +18,24 @@ class VoiceRecorderService : Service() {
     private lateinit var notif: NotificationHelper
     private lateinit var fileMgr: SessionFileManager
     private lateinit var engine: RecordingEngine
+    private lateinit var callListener: CallStateListener
 
     private val handler = Handler(Looper.getMainLooper())
     private val rotationRunnable = Runnable { rotate() }
     private var sessionStartedAt: Long = 0L
     private var currentFilename: String = "—"
+    private var pausedAt: Long = 0L
 
     override fun onCreate() {
         super.onCreate()
         notif = NotificationHelper(this)
         fileMgr = SessionFileManager(this)
         engine = RecordingEngine(this)
+        callListener = CallStateListener(
+            ctx = this,
+            onCallStarted = ::handleCallStarted,
+            onCallEnded = ::handleCallEnded,
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -45,7 +53,7 @@ class VoiceRecorderService : Service() {
     private fun startRecording() {
         if (engine.state != RecordingEngine.State.Idle) return
         val initial = notif.buildOngoing(
-            title = TITLE,
+            title = TITLE_RECORDING,
             text = "Démarrage…",
             startTimeMs = System.currentTimeMillis(),
         )
@@ -59,6 +67,7 @@ class VoiceRecorderService : Service() {
             startForeground(NotificationHelper.NOTIF_ID, initial)
         }
         beginNewSession()
+        callListener.start()
     }
 
     private fun beginNewSession() {
@@ -67,7 +76,7 @@ class VoiceRecorderService : Service() {
             engine.start(entry.fd)
             sessionStartedAt = System.currentTimeMillis()
             currentFilename = entry.filename
-            notif.update(TITLE, entry.filename, sessionStartedAt)
+            notif.update(TITLE_RECORDING, entry.filename, sessionStartedAt)
             handler.postDelayed(rotationRunnable, SESSION_DURATION_MS)
         } catch (e: Exception) {
             Log.e(TAG, "beginNewSession failed", e)
@@ -86,7 +95,50 @@ class VoiceRecorderService : Service() {
         beginNewSession()
     }
 
+    private fun handleCallStarted() {
+        if (engine.state != RecordingEngine.State.Recording) return
+        try {
+            engine.pause()
+        } catch (e: Exception) {
+            Log.e(TAG, "engine.pause failed", e)
+            return
+        }
+        pausedAt = System.currentTimeMillis()
+        handler.removeCallbacks(rotationRunnable)
+        notif.update(TITLE_PAUSED, currentFilename, sessionStartedAt)
+    }
+
+    private fun handleCallEnded() {
+        if (engine.state != RecordingEngine.State.Paused) {
+            pausedAt = 0L
+            return
+        }
+        val pauseDuration = if (pausedAt > 0L) System.currentTimeMillis() - pausedAt else 0L
+        pausedAt = 0L
+        if (pauseDuration >= CALL_LONG_THRESHOLD_MS) {
+            try {
+                engine.stop()
+                fileMgr.finalizeCurrent()
+            } catch (e: Exception) {
+                Log.e(TAG, "long call: stop/finalize failed", e)
+            }
+            beginNewSession()
+        } else {
+            try {
+                engine.resume()
+            } catch (e: Exception) {
+                Log.e(TAG, "engine.resume failed", e)
+                return
+            }
+            notif.update(TITLE_RECORDING, currentFilename, sessionStartedAt)
+            val elapsed = System.currentTimeMillis() - sessionStartedAt
+            val remaining = (SESSION_DURATION_MS - elapsed).coerceAtLeast(1_000L)
+            handler.postDelayed(rotationRunnable, remaining)
+        }
+    }
+
     private fun stopAll() {
+        callListener.stop()
         handler.removeCallbacks(rotationRunnable)
         try { engine.stop() } catch (_: Exception) {}
         try { fileMgr.finalizeCurrent() } catch (_: Exception) {}
@@ -103,7 +155,9 @@ class VoiceRecorderService : Service() {
         const val ACTION_START = "com.serortech.audioo.action.START"
         const val ACTION_STOP = "com.serortech.audioo.action.STOP"
         const val SESSION_DURATION_MS = 20L * 60 * 1000
-        private const val TITLE = "Audioo — recording"
+        const val CALL_LONG_THRESHOLD_MS = 30_000L
+        private const val TITLE_RECORDING = "Audioo — recording"
+        private const val TITLE_PAUSED = "Audioo — paused (call)"
         private const val TAG = "VoiceRecorderSvc"
     }
 }
