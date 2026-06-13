@@ -114,7 +114,7 @@ fun AudiooMain(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
         Text("Audioo", style = MaterialTheme.typography.headlineLarge)
-        Text("v0.0.8 — Drive sync", style = MaterialTheme.typography.bodyMedium)
+        Text("v0.0.9 — Drive sync", style = MaterialTheme.typography.bodyMedium)
 
         if (!granted) {
             Button(
