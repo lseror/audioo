@@ -28,6 +28,17 @@ class NotificationHelper(private val ctx: Context) {
             }
             nm.createNotificationChannel(channel)
         }
+        if (nm.getNotificationChannel(RESUME_CHANNEL_ID) == null) {
+            val channel = NotificationChannel(
+                RESUME_CHANNEL_ID,
+                "Audioo reprise",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "Proposition de reprise de l'enregistrement après redémarrage"
+                setShowBadge(true)
+            }
+            nm.createNotificationChannel(channel)
+        }
     }
 
     fun buildOngoing(title: String, text: String, startTimeMs: Long): Notification {
@@ -56,8 +67,43 @@ class NotificationHelper(private val ctx: Context) {
         nm.notify(NOTIF_ID, buildOngoing(title, text, startTimeMs))
     }
 
+    /**
+     * Notification proposée au boot pour reprendre l'enregistrement. Le tap ouvre
+     * [MainActivity] avec l'extra [MainActivity.EXTRA_RESUME] qui déclenche le
+     * démarrage du service depuis le premier plan (autorisé sur Android 14).
+     */
+    fun showResume() {
+        val intent = Intent(ctx, MainActivity::class.java).apply {
+            putExtra(MainActivity.EXTRA_RESUME, true)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val contentIntent = PendingIntent.getActivity(
+            ctx,
+            RESUME_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = NotificationCompat.Builder(ctx, RESUME_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notif_mic)
+            .setContentTitle("Audioo")
+            .setContentText("Tape pour reprendre l'enregistrement")
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setContentIntent(contentIntent)
+            .build()
+        nm.notify(RESUME_NOTIF_ID, notification)
+    }
+
+    fun cancelResume() {
+        nm.cancel(RESUME_NOTIF_ID)
+    }
+
     companion object {
         const val CHANNEL_ID = "audioo_recording"
         const val NOTIF_ID = 1001
+        const val RESUME_CHANNEL_ID = "audioo_resume"
+        const val RESUME_NOTIF_ID = 1002
+        private const val RESUME_REQUEST_CODE = 2001
     }
 }
