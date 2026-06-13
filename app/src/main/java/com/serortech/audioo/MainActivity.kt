@@ -37,6 +37,7 @@ import com.serortech.audioo.ui.theme.AudiooTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleResumeIntent(intent)
         setContent {
             AudiooTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { inner ->
@@ -44,6 +45,29 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleResumeIntent(intent)
+    }
+
+    /**
+     * Démarre le service quand on est arrivé via la notification de reprise au
+     * boot. L'activity étant au premier plan, le démarrage du FGS micro est
+     * autorisé (ce que [com.serortech.audioo.boot.BootReceiver] ne peut pas faire
+     * directement sur Android 14).
+     */
+    private fun handleResumeIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_RESUME, false) != true) return
+        val start = Intent(this, VoiceRecorderService::class.java)
+            .setAction(VoiceRecorderService.ACTION_START)
+        ContextCompat.startForegroundService(this, start)
+    }
+
+    companion object {
+        const val EXTRA_RESUME = "com.serortech.audioo.extra.RESUME"
     }
 }
 
@@ -90,7 +114,7 @@ fun AudiooMain(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
         Text("Audioo", style = MaterialTheme.typography.headlineLarge)
-        Text("v0.0.4 — Drive sync", style = MaterialTheme.typography.bodyMedium)
+        Text("v0.0.5 — Drive sync", style = MaterialTheme.typography.bodyMedium)
 
         if (!granted) {
             Button(

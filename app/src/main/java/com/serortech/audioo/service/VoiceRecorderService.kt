@@ -14,6 +14,7 @@ import com.serortech.audioo.audio.RecordingEngine
 import com.serortech.audioo.audio.SessionFileManager
 import com.serortech.audioo.drive.UploadWorker
 import com.serortech.audioo.notif.NotificationHelper
+import com.serortech.audioo.util.RecordingState
 
 class VoiceRecorderService : Service() {
 
@@ -43,6 +44,7 @@ class VoiceRecorderService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                RecordingState.setRecording(this, false)
                 stopAll()
                 stopSelf()
                 return START_NOT_STICKY
@@ -68,6 +70,8 @@ class VoiceRecorderService : Service() {
         } else {
             startForeground(NotificationHelper.NOTIF_ID, initial)
         }
+        RecordingState.setRecording(this, true)
+        notif.cancelResume()
         beginNewSession()
         callListener.start()
     }
