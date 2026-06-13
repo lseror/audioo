@@ -114,7 +114,7 @@ fun AudiooMain(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
         Text("Audioo", style = MaterialTheme.typography.headlineLarge)
-        Text("v0.0.5 — Drive sync", style = MaterialTheme.typography.bodyMedium)
+        Text("v0.0.6 — Drive sync", style = MaterialTheme.typography.bodyMedium)
 
         if (!granted) {
             Button(
@@ -160,5 +160,9 @@ fun AudiooMain(modifier: Modifier = Modifier) {
             },
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Stop recording") }
+        OutlinedButton(
+            onClick = { ctx.startActivity(Intent(ctx, LibraryActivity::class.java)) },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Mes enregistrements") }
     }
 }

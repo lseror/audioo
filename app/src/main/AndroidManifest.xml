@@ -30,6 +30,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".LibraryActivity"
+            android:exported="false"
+            android:label="Mes enregistrements"
+            android:theme="@style/Theme.Audioo" />
+
         <service
             android:name=".service.VoiceRecorderService"
             android:exported="false"
