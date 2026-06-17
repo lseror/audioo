@@ -1,13 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Audioo : microphone blanc, centré dans la zone sûre du 108x108. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Microphone silhouette, centered in 108x108 viewport. -->
-    <group android:scaleX="2.4" android:scaleY="2.4" android:translateX="32" android:translateY="32">
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M0,-12 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0 M0,-12 L0,4 M0,4 m-6,0 a6,6 0 1,0 12,0 M0,10 L0,16 M-6,16 L6,16" />
-    </group>
+    <!-- Capsule du micro (trait épais + bouts arrondis = pilule). -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="16"
+        android:strokeLineCap="round"
+        android:pathData="M54,34 L54,54" />
+    <!-- Support en U sous la capsule. -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M38,52 A16,16 0 0 0 70,52" />
+    <!-- Pied. -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M54,68 L54,78" />
+    <!-- Base. -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M42,78 L66,78" />
 </vector>
