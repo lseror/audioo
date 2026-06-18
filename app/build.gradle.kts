@@ -22,8 +22,8 @@ android {
         applicationId = "com.serortech.audioo"
         minSdk = 29
         targetSdk = 34
-        versionCode = 9
-        versionName = "0.0.9"
+        versionCode = 12
+        versionName = "0.0.12"
     }
 
     signingConfigs {
