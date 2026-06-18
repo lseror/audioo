@@ -54,6 +54,10 @@ class DriveLibrary(private val ctx: Context, account: GoogleSignInAccount) {
         out
     }
 
+    suspend fun delete(fileId: String) = withContext(Dispatchers.IO) {
+        drive.files().delete(fileId).execute()
+    }
+
     private fun findFolderId(): String? {
         val query = "mimeType='application/vnd.google-apps.folder' " +
             "and name='$FOLDER_NAME' and trashed=false and 'root' in parents"

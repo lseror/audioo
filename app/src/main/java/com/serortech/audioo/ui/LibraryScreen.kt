@@ -2,8 +2,10 @@ package com.serortech.audioo.ui
 
 import android.media.MediaPlayer
 import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,9 +28,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -167,6 +174,37 @@ fun LibraryScreen(onBack: () -> Unit) {
         }
     }
 
+    var pendingDelete by remember { mutableStateOf<LibItem?>(null) }
+
+    fun deleteItem(item: LibItem) {
+        if (playingName == item.name) {
+            player?.release(); player = null; isPlaying = false; playingName = null
+        }
+        items = items.filterNot { it.name == item.name }
+        transcripts.remove(item.name)
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                runCatching { item.localUri?.let { ctx.contentResolver.delete(it, null, null) } }
+                runCatching { item.driveId?.let { driveLib?.delete(it) } }
+                transcriptStore.delete(item.name)
+            }
+        }
+    }
+
+    pendingDelete?.let { item ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Supprimer l'enregistrement ?") },
+            text = { Text(item.name) },
+            confirmButton = {
+                TextButton(onClick = { deleteItem(item); pendingDelete = null }) { Text("Supprimer") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("Annuler") }
+            },
+        )
+    }
+
     DisposableEffect(Unit) { onDispose { player?.release(); player = null } }
 
     LaunchedEffect(isPlaying, playingName) {
@@ -211,19 +249,45 @@ fun LibraryScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(items, key = { it.name }) { item ->
-                RecordingCard(
-                    item = item,
-                    isCurrent = playingName == item.name,
-                    isPlaying = isPlaying && playingName == item.name,
-                    isPreparing = preparing[item.name] == true,
-                    positionMs = if (playingName == item.name) positionMs else 0,
-                    durationMs = if (playingName == item.name && durationMs > 0) durationMs else item.durationMs.toInt(),
-                    transcript = transcripts[item.name],
-                    isTranscribing = transcribing[item.name] == true,
-                    onToggle = { play(item) },
-                    onSeek = { ms -> if (playingName == item.name) { player?.seekTo(ms); positionMs = ms } },
-                    onTranscribe = { transcribe(item) },
+                val dismissState = rememberSwipeToDismissBoxState(
+                    confirmValueChange = { value ->
+                        if (value == SwipeToDismissBoxValue.EndToStart) { pendingDelete = item; false } else false
+                    },
                 )
+                SwipeToDismissBox(
+                    state = dismissState,
+                    enableDismissFromStartToEnd = false,
+                    enableDismissFromEndToStart = true,
+                    backgroundContent = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.errorContainer)
+                                .padding(horizontal = 20.dp),
+                            contentAlignment = Alignment.CenterEnd,
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Supprimer",
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
+                    },
+                ) {
+                    RecordingCard(
+                        item = item,
+                        isCurrent = playingName == item.name,
+                        isPlaying = isPlaying && playingName == item.name,
+                        isPreparing = preparing[item.name] == true,
+                        positionMs = if (playingName == item.name) positionMs else 0,
+                        durationMs = if (playingName == item.name && durationMs > 0) durationMs else item.durationMs.toInt(),
+                        transcript = transcripts[item.name],
+                        isTranscribing = transcribing[item.name] == true,
+                        onToggle = { play(item) },
+                        onSeek = { ms -> if (playingName == item.name) { player?.seekTo(ms); positionMs = ms } },
+                        onTranscribe = { transcribe(item) },
+                    )
+                }
             }
         }
     }

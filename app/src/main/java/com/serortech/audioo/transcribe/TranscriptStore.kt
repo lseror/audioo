@@ -24,4 +24,8 @@ class TranscriptStore(ctx: Context) {
     fun save(recordingName: String, text: String) {
         fileFor(recordingName).writeText(text)
     }
+
+    fun delete(recordingName: String) {
+        fileFor(recordingName).delete()
+    }
 }
